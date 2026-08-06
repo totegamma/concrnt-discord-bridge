@@ -6,7 +6,8 @@ import {
     WebhookClient
 } from 'discord.js'
 
-import { Client as ConcrntClient } from '@concrnt/worldlib'
+import { Client as ConcrntClient, semantics, Schemas } from '@concrnt/worldlib'
+import { InMemoryAuthProvider, InMemoryKVS, CDID, LoadKeyFromMnemonic } from '@concrnt/client'
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 const CONCRNT_SECRET = process.env.CONCRNT_SECRET
@@ -15,7 +16,14 @@ const WEBHOOK_NAME = process.env.WEBHOOK_NAME || "Concrnt Bridge"
 const CONCRNT_TIMELINE = process.env.CONCRNT_TIMELINE
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID
 
-const concrntClient = await ConcrntClient.create(CONCRNT_SECRET, CONCRNT_SERVER)
+const concrntPrivatekey = CONCRNT_SECRET.includes(' ')
+    ? LoadKeyFromMnemonic(CONCRNT_SECRET)?.privatekey
+    : CONCRNT_SECRET
+const concrntClient = await ConcrntClient.create(
+    CONCRNT_SERVER,
+    new InMemoryAuthProvider(concrntPrivatekey),
+    new InMemoryKVS()
+)
 let webhookClient = undefined
 
 const escapeMarkdownLinkText = (text) => String(text ?? 'media')
@@ -129,39 +137,55 @@ const convertDetailsToDiscordSpoilers = (content = '') => {
     )
 }
 
-const socket = await concrntClient.newSocketListener()
-socket.on('MessageCreated', async (msg) => {
-    console.log("Concrnt message:", msg)
-    if (!webhookClient) {
-        console.log("Webhook client not ready")
-        return
-    }
+const timelineReader = await concrntClient.newTimelineReader()
+timelineReader.haltUpdate = true
 
-    const doc = JSON.parse(msg.document)
-    const body = doc.body
+// haltUpdate中はTimelineReader内部の重複排除が効かないため自前で持つ
+const seenMessageURIs = new Set()
 
-    if (doc.signer === concrntClient.ccid) {
-        console.log("Ignoring own message")
-        return
-    }
+timelineReader.onNewItem = (item) => {
+    (async () => {
+        console.log("Concrnt message:", item.href)
+        if (!webhookClient) {
+            console.log("Webhook client not ready")
+            return
+        }
 
-    const author = await concrntClient.getUser(doc.signer)
-    const mediaLines = buildConcrntMediaLines(body.medias)
-    const content = buildContentWithMediaLinks(convertDetailsToDiscordSpoilers(body.body), mediaLines)
+        if (seenMessageURIs.has(item.href)) return
+        seenMessageURIs.add(item.href)
+        if (seenMessageURIs.size > 1000) {
+            seenMessageURIs.delete(seenMessageURIs.values().next().value)
+        }
 
-    if (!content) {
-        console.log("Ignoring empty Concrnt message")
-        return
-    }
+        const msg = await concrntClient.getMessage(item.href)
+        if (!msg) {
+            console.log("Failed to load Concrnt message:", item.href)
+            return
+        }
 
-    await webhookClient.send({
-        content,
-        username: author?.profile?.username,
-        avatarURL: author?.profile?.avatar,
+        if (msg.author === concrntClient.ccid) {
+            console.log("Ignoring own message")
+            return
+        }
+
+        const mediaLines = buildConcrntMediaLines(msg.value.medias)
+        const content = buildContentWithMediaLinks(convertDetailsToDiscordSpoilers(msg.value.body), mediaLines)
+
+        if (!content) {
+            console.log("Ignoring empty Concrnt message")
+            return
+        }
+
+        await webhookClient.send({
+            content,
+            username: msg.authorProfile?.username,
+            avatarURL: msg.authorProfile?.avatar,
+        })
+    })().catch((err) => {
+        console.error("Failed to bridge Concrnt message:", err)
     })
-
-})
-await socket.listen([CONCRNT_TIMELINE])
+}
+await timelineReader.listen([CONCRNT_TIMELINE])
 
 const discordClient = new DiscordClient({
     intents: [
@@ -203,30 +227,30 @@ discordClient.on(Events.MessageCreate, async (message) => {
         return
     }
 
-    if (medias.length > 0) {
-        await concrntClient.createMediaCrnt(
-            content,
-            [CONCRNT_TIMELINE],
-            {
-                medias,
-                profileOverride: {
-                    username: message.author.username,
-                    avatar: message.author.displayAvatarURL({ forceStatic: false, size: 256 }),
-                }
+    const timestamp = new Date()
+    const key = semantics.post(
+        concrntClient.ccid,
+        'main',
+        CDID.newFromString(content, timestamp).toString()
+    )
+    const document = {
+        kind: 'record',
+        key,
+        schema: medias.length > 0 ? Schemas.mediaMessage : Schemas.markdownMessage,
+        value: {
+            body: content,
+            ...(medias.length > 0 ? { medias } : {}),
+            profileOverride: {
+                username: message.author.username,
+                avatar: message.author.displayAvatarURL({ forceStatic: false, size: 256 }),
             }
-        )
-    } else {
-        await concrntClient.createMarkdownCrnt(
-            content,
-            [CONCRNT_TIMELINE],
-            {
-                profileOverride: {
-                    username: message.author.username,
-                    avatar: message.author.displayAvatarURL({ forceStatic: false, size: 256 }),
-                }
-            }
-        )
+        },
+        author: concrntClient.ccid,
+        distributes: [CONCRNT_TIMELINE],
+        createdAt: timestamp
     }
+    // botはマスター鍵のみ(subkeyなし)なのでデフォルトのsubkey署名は使えない
+    await concrntClient.api.commit(document, undefined, { useMasterkey: true })
 });
 
 discordClient.login(DISCORD_TOKEN);
