@@ -10,8 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@concrnt/client": "^2.0.3",
-    "@concrnt/worldlib": "^2.0.3",
+    "@concrnt/client": "^2.0.6",
+    "@concrnt/worldlib": "^2.0.6",
     "discord.js": "^14.22.1"
   }
 }

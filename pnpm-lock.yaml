@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@concrnt/client':
-        specifier: ^2.0.3
-        version: 2.0.3
+        specifier: ^2.0.6
+        version: 2.0.6
       '@concrnt/worldlib':
-        specifier: ^2.0.3
-        version: 2.0.3
+        specifier: ^2.0.6
+        version: 2.0.6
       discord.js:
         specifier: ^14.22.1
         version: 14.22.1
@@ -23,11 +23,11 @@ packages:
   '@adraffy/ens-normalize@1.10.1':
     resolution: {integrity: sha512-96Z2IP3mYmF1Xg2cDm8f1gWGf/HUVedQ3FMifV4kG/PQ4yEP51xDtRAEfhVNt5f/uzpNkZHwWQuUcu6D6K+Ekw==}
 
-  '@concrnt/client@2.0.3':
-    resolution: {integrity: sha512-l5Gxht7qLvF6tgrg8j569O2oHh680ixbE4mERJbbsYBjoh42GW/aHYyjV9zomfQKF9IMJ7N/z3/6MCYhAtQtJA==}
+  '@concrnt/client@2.0.6':
+    resolution: {integrity: sha512-XE6jLSxvHiWwplqg8tGrfioR0uGrKmBzu/NNUlzN+Xqjph7TPU1+gbkfxwjzWUk/vHkjPjJeLt4Ad4RpsJM2Ig==}
 
-  '@concrnt/worldlib@2.0.3':
-    resolution: {integrity: sha512-Q3zS9Aazp3U1ThMiv23H2hMYUCF+nDgQGLBtjnRriWTUWZQbmV/ittJm3/lKRfjMIjyTj8BCWvKEF9Em2sjSJw==}
+  '@concrnt/worldlib@2.0.6':
+    resolution: {integrity: sha512-EdCKj0/dX4uCrzXWjzITsUlVJmMlAfUn22NCtJJtsY/3Ctj4WyRQX5J5SiGJXuhWbQtIbddVCWVd1QVq6KvhzA==}
 
   '@cosmjs/amino@0.33.1':
     resolution: {integrity: sha512-WfWiBf2EbIWpwKG9AOcsIIkR717SY+JdlXM/SL/bI66BdrhniAF+/ZNis9Vo9HF6lP2UU5XrSmFA4snAvEgdrg==}
@@ -255,7 +255,7 @@ snapshots:
 
   '@adraffy/ens-normalize@1.10.1': {}
 
-  '@concrnt/client@2.0.3':
+  '@concrnt/client@2.0.6':
     dependencies:
       '@cosmjs/amino': 0.33.1
       '@cosmjs/crypto': 0.33.1
@@ -270,9 +270,9 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@concrnt/worldlib@2.0.3':
+  '@concrnt/worldlib@2.0.6':
     dependencies:
-      '@concrnt/client': 2.0.3
+      '@concrnt/client': 2.0.6
       '@types/node': 25.9.5
     transitivePeerDependencies:
       - bufferutil
